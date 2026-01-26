@@ -20,7 +20,7 @@
             "discord": "T.J."
         }
     ],
-    "url": "#{URL}#",
+    "url": "https://github.com/SamboBaggins/SR5-FoundryVTT",
     "version": "0.32.4",
     "compatibility": {
         "minimum": "13",
@@ -226,8 +226,8 @@
         }
     ],
     "socket": true,
-    "manifest": "#{MANIFEST}#",
-    "download": "#{DOWNLOAD}#",
+    "manifest": "https://raw.githubusercontent.com/SamboBaggins/SR5-FoundryVTT/master/system.json",
+    "download": "https://github.com/SamboBaggins/SR5-FoundryVTT/archive/refs/heads/master.zip",
     "protected": false,
     "initiative": "@initiative.current.base.value + @initiative.current.dice.text - @wounds.value",
     "grid": {
