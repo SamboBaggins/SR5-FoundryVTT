@@ -226,7 +226,7 @@
         }
     ],
     "socket": true,
-    "manifest": "https://github.com/SamboBaggins/SR5-FoundryVTT/SR5-FoundryVTT/master/system.json",
+    "manifest": "https://github.com/SamboBaggins/SR5-FoundryVTT/SR5-FoundryVTT/system.json",
     "download": "https://github.com/SamboBaggins/SR5-FoundryVTT/archive/refs/heads/master.zip",
     "protected": false,
     "initiative": "@initiative.current.base.value + @initiative.current.dice.text - @wounds.value",
@@ -237,4 +237,5 @@
     "primaryTokenAttribute": "track.physical",
     "secondaryTokenAttribute": "track.stun"
 }
+
 
