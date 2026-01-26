@@ -4,6 +4,7 @@ import { SpriteImporter } from "../../actorImport/spriteImporter/SpriteImporter"
 import { ActorFile, ActorSchema } from "../../actorImport/ActorSchema";
 import { ImporterSourcesConfig } from "./ImporterSourcesConfig";
 import { ImportHelper as IH } from "../helper/ImportHelper";
+import { parseHeroLabsData, validateHeroLabsData } from "../../actorImport/heroLabsParser/HeroLabsParser";
 
 const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api
 
@@ -80,30 +81,172 @@ export class ActorImporter extends BaseClass {
         return { ...baseContext, folders };
     }
 
-    private async handleActorImport() {
-        // Get the JSON input from the textarea
-        const textarea = document.getElementById('chummer-input') as HTMLTextAreaElement;
-        const jsonText = textarea?.value.trim();
+    override async _activateListeners(html: JQuery<HTMLElement>) {
+        await super._activateListeners(html);
 
-        if (!jsonText) {
-            ui.notifications?.warn("Please paste Chummer JSON data to import.");
+        // Tab switching
+        html.find('.import-tab').on('click', (event) => {
+            const tab = $(event.currentTarget);
+            const source = tab.data('source');
+            this.switchImportSource(source);
+        });
+
+        // File input handler
+        const fileInput = html.find('#herolabs-file-input')[0] as HTMLInputElement;
+        if (fileInput) {
+            fileInput.addEventListener('change', (e) => {
+                const target = e.target as HTMLInputElement;
+                if (target.files && target.files.length > 0) {
+                    this.handleFileUpload(target.files[0]);
+                }
+            });
+        }
+
+        // Browse button
+        html.find('.browse-button').on('click', () => {
+            fileInput?.click();
+        });
+
+        // Remove file button
+        html.find('#herolabs-remove-file').on('click', () => {
+            this.clearFileUpload();
+        });
+
+        // Drag and drop
+        const dropArea = html.find('#herolabs-file-drop')[0];
+        if (dropArea) {
+            dropArea.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                dropArea.classList.add('drag-over');
+            });
+
+            dropArea.addEventListener('dragleave', () => {
+                dropArea.classList.remove('drag-over');
+            });
+
+            dropArea.addEventListener('drop', (e) => {
+                e.preventDefault();
+                dropArea.classList.remove('drag-over');
+                if (e.dataTransfer?.files && e.dataTransfer.files.length > 0) {
+                    this.handleFileUpload(e.dataTransfer.files[0]);
+                }
+            });
+        }
+    }
+
+    private switchImportSource(source: string) {
+        const html = this.element;
+        
+        // Update tabs
+        html.find('.import-tab').removeClass('active');
+        html.find(`.import-tab[data-source="${source}"]`).addClass('active');
+        
+        // Update sections
+        html.find('.import-section').hide();
+        html.find(`#${source}-section`).show();
+    }
+
+    private async handleFileUpload(file: File) {
+        const html = this.element;
+        const fileName = file.name;
+        const fileExtension = fileName.split('.').pop()?.toLowerCase();
+
+        // Validate file type
+        if (fileExtension !== 'por' && fileExtension !== 'json') {
+            ui.notifications?.error(game.i18n.localize('SR5.Import.HeroLabs.InvalidFileType'));
             return;
         }
 
-        let actorData: ActorSchema;
+        // Show file info
+        html.find('#herolabs-file-name').text(fileName);
+        html.find('.file-upload-prompt').hide();
+        html.find('#herolabs-file-info').show();
+
         try {
-            actorData = IH.getArray((JSON.parse(jsonText) as ActorFile).characters.character)[0];
-        } catch (e) {
-            ui.notifications?.error("Invalid JSON. Please check your input.");
-            console.error("JSON Parse Error:", e);
-            return;
+            // Read file content
+            const content = await this.readFileContent(file);
+            
+            // Store content for import
+            this._heroLabsFileContent = content;
+            this._heroLabsFileType = fileExtension === 'por' ? 'xml' : 'json';
+            
+            // If JSON, try to parse and show in textarea
+            if (fileExtension === 'json') {
+                try {
+                    const jsonText = typeof content === 'string' ? content : new TextDecoder().decode(content);
+                    const textarea = html.find('#herolabs-input')[0] as HTMLTextAreaElement;
+                    if (textarea) {
+                        textarea.value = jsonText;
+                    }
+                } catch (e) {
+                    console.warn('Could not parse JSON file for textarea display:', e);
+                }
+            }
+        } catch (error) {
+            ui.notifications?.error(
+                game.i18n.format('SR5.Import.HeroLabs.FileReadError', 
+                    error instanceof Error ? error.message : String(error))
+            );
+            this.clearFileUpload();
+        }
+    }
+
+    private clearFileUpload() {
+        const html = this.element;
+        html.find('#herolabs-file-input').val('');
+        html.find('.file-upload-prompt').show();
+        html.find('#herolabs-file-info').hide();
+        this._heroLabsFileContent = null;
+        this._heroLabsFileType = null;
+    }
+
+    private async readFileContent(file: File): Promise<string | ArrayBuffer> {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                if (e.target?.result) {
+                    resolve(e.target.result);
+                } else {
+                    reject(new Error('Failed to read file'));
+                }
+            };
+            reader.onerror = () => reject(new Error('File reading error'));
+            
+            // Read as text for JSON, as array buffer for .por (may be binary)
+            if (file.name.endsWith('.json')) {
+                reader.readAsText(file);
+            } else {
+                reader.readAsArrayBuffer(file);
+            }
+        });
+    }
+
+    private _heroLabsFileContent: string | ArrayBuffer | null = null;
+    private _heroLabsFileType: 'xml' | 'json' | null = null;
+
+    private async handleActorImport() {
+        const html = this.element;
+        const activeTab = html.find('.import-tab.active').data('source');
+        
+        let actorData: ActorSchema;
+
+        if (activeTab === 'herolabs') {
+            // Hero Labs import
+            actorData = await this.handleHeroLabsImport();
+        } else {
+            // Chummer import
+            actorData = await this.handleChummerImport();
+        }
+
+        if (!actorData) {
+            return; // Error already shown
         }
 
         const getCheckboxValue = (selector: string): boolean =>
-            (document.querySelector(selector) as HTMLInputElement)?.checked ?? false;
+            (html.find(selector)[0] as HTMLInputElement)?.checked ?? false;
 
         const getInputValue = (selector: string): string | null =>
-            (document.querySelector(selector) as HTMLInputElement)?.value || null;
+            (html.find(selector)[0] as HTMLInputElement)?.value || null;
 
         const importOptions = {
             assignIcons: getCheckboxValue('#assign-icons'),
@@ -121,10 +264,6 @@ export class ActorImporter extends BaseClass {
             weapons: getCheckboxValue('input[data-field="weapons"]'),
         };
 
-        // Log everything for now (replace with actual import logic)
-        console.log("Parsed Chummer Data:", actorData);
-        console.log("Import Options:", importOptions);
-
         const spiritType = this.getSpiritType(actorData);
         if (spiritType)
             await SpiritImporter.import(actorData, spiritType, importOptions);
@@ -134,6 +273,87 @@ export class ActorImporter extends BaseClass {
             await CharacterImporter.import(actorData, importOptions);
 
         await this.close();
+    }
+
+    private async handleChummerImport(): Promise<ActorSchema | null> {
+        const html = this.element;
+        const textarea = html.find('#chummer-input')[0] as HTMLTextAreaElement;
+        const jsonText = textarea?.value.trim();
+
+        if (!jsonText) {
+            ui.notifications?.warn(game.i18n.localize('SR5.Import.Chummer.NoDataError') || "Please paste Chummer JSON data to import.");
+            return null;
+        }
+
+        try {
+            const actorData = IH.getArray((JSON.parse(jsonText) as ActorFile).characters.character)[0];
+            return actorData;
+        } catch (e) {
+            ui.notifications?.error(game.i18n.localize('SR5.Import.Chummer.InvalidJsonError') || "Invalid JSON. Please check your input.");
+            console.error("JSON Parse Error:", e);
+            return null;
+        }
+    }
+
+    private async handleHeroLabsImport(): Promise<ActorSchema | null> {
+        const html = this.element;
+        let heroLabsData: unknown = null;
+
+        // Check if file was uploaded
+        if (this._heroLabsFileContent) {
+            try {
+                if (this._heroLabsFileType === 'xml') {
+                    // .por file - convert ArrayBuffer to string
+                    const content = this._heroLabsFileContent instanceof ArrayBuffer
+                        ? new TextDecoder().decode(this._heroLabsFileContent)
+                        : this._heroLabsFileContent as string;
+                    heroLabsData = content;
+                } else {
+                    // JSON file
+                    const content = this._heroLabsFileContent instanceof ArrayBuffer
+                        ? new TextDecoder().decode(this._heroLabsFileContent)
+                        : this._heroLabsFileContent as string;
+                    heroLabsData = JSON.parse(content);
+                }
+            } catch (error) {
+                ui.notifications?.error(
+                    game.i18n.format('SR5.Import.HeroLabs.ParseError',
+                        error instanceof Error ? error.message : String(error))
+                );
+                return null;
+            }
+        } else {
+            // Check textarea
+            const textarea = html.find('#herolabs-input')[0] as HTMLTextAreaElement;
+            const jsonText = textarea?.value.trim();
+
+            if (!jsonText) {
+                ui.notifications?.warn(game.i18n.localize('SR5.Import.HeroLabs.NoDataError'));
+                return null;
+            }
+
+            try {
+                heroLabsData = JSON.parse(jsonText);
+            } catch (error) {
+                ui.notifications?.error(game.i18n.localize('SR5.Import.HeroLabs.InvalidJsonError'));
+                console.error("JSON Parse Error:", error);
+                return null;
+            }
+        }
+
+        // Validate and parse Hero Labs data
+        try {
+            validateHeroLabsData(heroLabsData);
+            const actorData = await parseHeroLabsData(heroLabsData);
+            return actorData;
+        } catch (error) {
+            ui.notifications?.error(
+                game.i18n.format('SR5.Import.HeroLabs.ImportError',
+                    error instanceof Error ? error.message : String(error))
+            );
+            console.error("Hero Labs Import Error:", error);
+            return null;
+        }
     }
 
     private getSpiritType(chummerChar: ActorSchema) {

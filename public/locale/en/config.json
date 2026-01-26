@@ -1193,6 +1193,26 @@
             },
             "ImporterSourcesConfig": {
                 "Title": "Importer Sources Configuration"
+            },
+            "HeroLabs": {
+                "TabLabel": "Hero Labs",
+                "FileUploadLabel": "Hero Labs Character File",
+                "FileUploadPrompt": "Drag & drop a .por or .json file here, or click to browse",
+                "BrowseFiles": "Browse Files",
+                "OrDivider": "OR",
+                "JsonInputLabel": "Hero Labs Export Data (JSON)",
+                "JsonInputPlaceholder": "HOW TO IMPORT:\n• In Hero Labs, export your character to JSON format.\n• Select all text (CTRL+A) and copy (CTRL+C).\n• Paste the copied text into this box.\n• Alternatively, upload a .por file above.",
+                "InvalidFileType": "Invalid file type. Please upload a .por or .json file.",
+                "FileReadError": "Failed to read file: {0}",
+                "NoDataError": "Please upload a Hero Labs file or paste JSON export data.",
+                "InvalidJsonError": "Invalid JSON. Please check your input.",
+                "ImportError": "Failed to import Hero Labs data: {0}",
+                "ParseError": "Failed to parse uploaded file: {0}"
+            },
+            "Chummer": {
+                "TabLabel": "Chummer",
+                "NoDataError": "Please paste Chummer JSON data to import.",
+                "InvalidJsonError": "Invalid JSON. Please check your input."
             }
         },
         "ImportCharacter": "Import Character",

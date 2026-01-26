@@ -1,15 +1,52 @@
 <div class="chummer-import">
-  <label for="chummer-input">Chummer Export Data (JSON)</label>
-  <textarea
-    id="chummer-input"
-    rows="8"
-    placeholder="HOW TO IMPORT:
+  <!-- Import Source Tabs -->
+  <div class="import-source-tabs">
+    <button type="button" class="import-tab active" data-source="chummer">Chummer</button>
+    <button type="button" class="import-tab" data-source="herolabs">Hero Labs</button>
+  </div>
+
+  <!-- Chummer Import Section -->
+  <div id="chummer-section" class="import-section active">
+    <label for="chummer-input">Chummer Export Data (JSON)</label>
+    <textarea
+      id="chummer-input"
+      rows="8"
+      placeholder="HOW TO IMPORT:
 • In Chummer, go to File > Export, choose JSON format.
 • Select all text (CTRL+A) and copy (CTRL+C).
 • Paste the copied text into this box."
-  ></textarea>
+    ></textarea>
+    <div id="chummer-issues" style="display: none;"></div>
+  </div>
 
-  <div id="chummer-issues" style="display: none;"></div>
+  <!-- Hero Labs Import Section -->
+  <div id="herolabs-section" class="import-section" style="display: none;">
+    <label for="herolabs-file-input">Hero Labs Character File</label>
+    <div class="file-upload-area" id="herolabs-file-drop">
+      <input type="file" id="herolabs-file-input" accept=".por,.json" style="display: none;" />
+      <div class="file-upload-prompt">
+        <i class="fas fa-cloud-upload-alt"></i>
+        <p>Drag & drop a .por or .json file here, or click to browse</p>
+        <button type="button" class="browse-button">Browse Files</button>
+      </div>
+      <div class="file-upload-info" id="herolabs-file-info" style="display: none;">
+        <span id="herolabs-file-name"></span>
+        <button type="button" class="remove-file" id="herolabs-remove-file">×</button>
+      </div>
+    </div>
+    <div class="or-divider">OR</div>
+    <label for="herolabs-input">Hero Labs Export Data (JSON)</label>
+    <textarea
+      id="herolabs-input"
+      rows="8"
+      placeholder="HOW TO IMPORT:
+• In Hero Labs, export your character to JSON format.
+• Select all text (CTRL+A) and copy (CTRL+C).
+• Paste the copied text into this box.
+• Alternatively, upload a .por file above."
+    ></textarea>
+    <div id="herolabs-issues" style="display: none;"></div>
+  </div>
 
   <fieldset>
     <legend>Import Options</legend>
