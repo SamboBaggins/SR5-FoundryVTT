@@ -3,16 +3,28 @@
  * Converts Hero Labs JSON export or .por file data to ActorSchema format.
  */
 
+import { Parser } from 'xml2js';
 import { ActorSchema } from '../ActorSchema';
 import { HeroLabsJsonExport, HeroLabsActor, getFirstActor, isHeroLabsJson } from '../HeroLabsSchema';
 import { parsePorFile } from './PorFileParser';
+import { parseHeroLabDocumentXml, isHeroLabDocumentFormat } from './HeroLabDocumentParser';
 import { mapAttributes, mapSkills, mapItems, mapMagicData, mapVehicles } from './FieldMappers';
 
 type MaybeEmpty<T> = T | null | undefined;
 
+const XML_PARSER_OPTIONS = {
+    trim: true,
+    attrkey: '$',
+    charkey: '_TEXT',
+    emptyTag: () => null,
+    explicitRoot: false,
+    explicitArray: false,
+    explicitCharkey: true,
+};
+
 /**
- * Parses Hero Labs data (JSON or .por XML) and converts it to ActorSchema format.
- * @param data - Hero Labs JSON export object or .por XML string
+ * Parses Hero Labs data (JSON or .por XML or Hero Lab native document XML) and converts it to ActorSchema format.
+ * @param data - Hero Labs JSON export object or XML string (.por or document/public/character format)
  * @returns ActorSchema object ready for CharacterImporter
  */
 export async function parseHeroLabsData(data: unknown): Promise<ActorSchema> {
@@ -20,7 +32,20 @@ export async function parseHeroLabsData(data: unknown): Promise<ActorSchema> {
 
     // Determine if input is JSON object or XML string
     if (typeof data === 'string') {
-        // Assume it's XML (.por file content)
+        const xmlContent = data.trim();
+        if (!xmlContent || !xmlContent.startsWith('<')) {
+            throw new Error('Invalid Hero Labs data. Expected XML content.');
+        }
+        // Hero Lab native export is <document><public><character>...</character></public></document>
+        try {
+            const parser = new Parser(XML_PARSER_OPTIONS);
+            const parsed = await parser.parseStringPromise(xmlContent);
+            if (isHeroLabDocumentFormat(parsed)) {
+                return parseHeroLabDocumentXml(parsed);
+            }
+        } catch {
+            // Fall through to .por parsing
+        }
         heroLabsExport = await parsePorFile(data);
     } else if (isHeroLabsJson(data)) {
         // It's already a Hero Labs JSON export
@@ -329,9 +354,16 @@ export function validateHeroLabsData(data: unknown): boolean {
         if (!trimmed.startsWith('<')) {
             throw new Error('Invalid .por file format. Expected XML content.');
         }
-        // Check for basic XML structure
-        if (!trimmed.includes('<?xml') && !trimmed.includes('<portfolio') && !trimmed.includes('<char')) {
-            throw new Error('Invalid .por file format. Missing expected XML structure.');
+        // Check for basic XML structure (.por or Hero Lab document format)
+        if (
+            !trimmed.includes('<?xml') &&
+            !trimmed.includes('<portfolio') &&
+            !trimmed.includes('<char') &&
+            !trimmed.includes('<document') &&
+            !trimmed.includes('<public') &&
+            !trimmed.includes('<character')
+        ) {
+            throw new Error('Invalid Hero Labs XML. Expected .por or document/public/character format.');
         }
         return true;
     }

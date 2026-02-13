@@ -17,6 +17,8 @@ import { HandlebarManager } from './handlebars/HandlebarManager';
 import { OverwatchScoreTracker } from './apps/gmtools/OverwatchScoreTracker';
 import { ActorImporter } from './apps/itemImport/apps/ActorImporter';
 import { BulkImporter } from './apps/itemImport/apps/BulkImporter';
+import { importCharacterFromSchema } from './apps/actorImport/ImportAPI';
+import { parseHeroLabsData } from './apps/actorImport/heroLabsParser/HeroLabsParser';
 import {ChangelogApplication} from "./apps/ChangelogApplication";
 import { SituationModifiersApplication } from './apps/SituationModifiersApplication';
 import {SR5ICActorSheet} from "./actor/sheets/SR5ICActorSheet";
@@ -497,6 +499,15 @@ ___________________
 
             if (ChangelogApplication.showApplication)
                 new ChangelogApplication().render(true);
+        }
+
+        // Public API for modules (e.g. Hero Labs Import) to import character from ActorSchema / Hero Labs XML
+        if (game.shadowrun5e) {
+            (game.shadowrun5e as Record<string, unknown>).api = {
+                importCharacterFromSchema,
+                /** Parse Hero Labs XML string to ActorSchema. Use with importCharacterFromSchema. */
+                parseHeroLabsXml: (xmlString: string) => parseHeroLabsData(xmlString)
+            };
         }
 
         Hooks.on('renderChatMessage', HooksManager.chatMessageListeners.bind(HooksManager));
