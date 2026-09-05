@@ -117,6 +117,8 @@ export type ActorSchema = {
     ai: TruthyString;
     cyberwaredisabled: TruthyString;
     critter: TruthyString;
+    /** Optional: NPC, PC, Spirit, Sprite, Vehicle, Critter - used to set is_npc on import */
+    charactertype?: string;
     totaless: string;
     tradition?: MaybeEmpty<{
         guid: string;

@@ -23,10 +23,11 @@
   <div id="herolabs-section" class="import-section" style="display: none;">
     <label for="herolabs-file-input">Hero Labs Character File</label>
     <div class="file-upload-area" id="herolabs-file-drop">
-      <input type="file" id="herolabs-file-input" accept=".por,.json" style="display: none;" />
+      <input type="file" id="herolabs-file-input" accept=".por,.xml,.json,application/xml,text/xml,application/json,*/*" style="display: none;" />
       <div class="file-upload-prompt">
         <i class="fas fa-cloud-upload-alt"></i>
-        <p>Drag & drop a .por or .json file here, or click to browse</p>
+        <p>Drag & drop a .por or .xml file here, or click to browse</p>
+        <p class="notes">If the file picker doesn't show .por/.xml: open your file in Notepad, copy all (Ctrl+A, Ctrl+C), and paste in the box below.</p>
         <button type="button" class="browse-button">Browse Files</button>
       </div>
       <div class="file-upload-info" id="herolabs-file-info" style="display: none;">
@@ -35,15 +36,16 @@
       </div>
     </div>
     <div class="or-divider">OR</div>
-    <label for="herolabs-input">Hero Labs Export Data (JSON)</label>
+    <p class="notes">Paste XML or JSON here (e.g. open your .por or .xml in Notepad, Ctrl+A, Ctrl+C, then paste below).</p>
+    <button type="button" class="load-example-button"><i class="fas fa-user-plus"></i> Load example character (XML)</button>
+    <label for="herolabs-input">Hero Labs Export Data (JSON or XML)</label>
     <textarea
       id="herolabs-input"
       rows="8"
       placeholder="HOW TO IMPORT:
-• In Hero Labs, export your character to JSON format.
-• Select all text (CTRL+A) and copy (CTRL+C).
-• Paste the copied text into this box.
-• Alternatively, upload a .por file above."
+• Upload a .por or .xml file above, or paste XML/JSON here.
+• Hero Lab XML export or .por (portfolio) file content.
+• For JSON: copy from Hero Labs JSON export and paste."
     ></textarea>
     <div id="herolabs-issues" style="display: none;"></div>
   </div>

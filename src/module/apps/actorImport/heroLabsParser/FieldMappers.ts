@@ -110,6 +110,12 @@ export function mapSkills(heroLabsActor: HeroLabsActor): ActorSchema['skills'] {
         const spec = skillValue.specialization;
         const specs = Array.isArray(spec) ? spec : (spec ? [spec] : []);
 
+        const resonanceSkills = ['compiling', 'decompiling', 'registering'];
+        let attr = (skillValue.attribute ?? 'int').toLowerCase();
+        if (resonanceSkills.includes((skillName ?? '').toString().toLowerCase())) {
+            attr = 'resonance';
+        }
+
         skills.push({
             guid: foundry.utils.randomID(),
             suid: foundry.utils.randomID(),
@@ -134,8 +140,8 @@ export function mapSkills(heroLabsActor: HeroLabsActor): ActorSchema['skills'] {
             base: String(skillValue.base ?? rating),
             karma: '0',
             spec: specs.length > 0 ? specs[0] : null,
-            attribute: skillValue.attribute ?? 'int',
-            displayattribute: skillValue.attribute ?? 'int',
+            attribute: attr,
+            displayattribute: attr,
             attributemod: '0',
             ratingmod: '0',
             poolmod: '0',

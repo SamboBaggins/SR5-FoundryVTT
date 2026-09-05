@@ -37,6 +37,9 @@ export class ActorImporter extends BaseClass {
             },
             openConfig: function(this: ActorImporter) {
                 void new ImporterSourcesConfig().render(true);
+            },
+            loadExample: function(this: ActorImporter) {
+                this.loadHeroLabsExample();
             }
         }
     };
@@ -81,18 +84,21 @@ export class ActorImporter extends BaseClass {
         return { ...baseContext, folders };
     }
 
-    override async _activateListeners(html: JQuery<HTMLElement>) {
-        await super._activateListeners(html);
+    override async _activateListeners(html: JQuery<HTMLElement> | HTMLElement) {
+        const $html = (typeof (html as JQuery).find === 'function') ? (html as JQuery<HTMLElement>) : $(html as HTMLElement);
+        await super._activateListeners($html);
 
-        // Tab switching
-        html.find('.import-tab').on('click', (event) => {
+        // Tab switching (preventDefault so form/other handlers don't capture the click)
+        $html.find('.import-tab').on('click', (event) => {
+            event.preventDefault();
+            event.stopPropagation();
             const tab = $(event.currentTarget);
             const source = tab.data('source');
-            this.switchImportSource(source);
+            if (source) this.switchImportSource(source);
         });
 
         // File input handler
-        const fileInput = html.find('#herolabs-file-input')[0] as HTMLInputElement;
+        const fileInput = $html.find('#herolabs-file-input')[0] as HTMLInputElement;
         if (fileInput) {
             fileInput.addEventListener('change', (e) => {
                 const target = e.target as HTMLInputElement;
@@ -103,17 +109,24 @@ export class ActorImporter extends BaseClass {
         }
 
         // Browse button
-        html.find('.browse-button').on('click', () => {
+        $html.find('.browse-button').on('click', () => {
             fileInput?.click();
         });
 
         // Remove file button
-        html.find('#herolabs-remove-file').on('click', () => {
+        $html.find('#herolabs-remove-file').on('click', () => {
             this.clearFileUpload();
         });
 
+        // Load example (no data-action on button; bind manually so we use same element)
+        $html.find('.load-example-button').on('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            this.loadHeroLabsExample();
+        });
+
         // Drag and drop
-        const dropArea = html.find('#herolabs-file-drop')[0];
+        const dropArea = $html.find('#herolabs-file-drop')[0];
         if (dropArea) {
             dropArea.addEventListener('dragover', (e) => {
                 e.preventDefault();
@@ -135,8 +148,8 @@ export class ActorImporter extends BaseClass {
     }
 
     private switchImportSource(source: string) {
-        const html = this.element;
-        
+        const html = $(this.element as HTMLElement);
+
         // Update tabs
         html.find('.import-tab').removeClass('active');
         html.find(`.import-tab[data-source="${source}"]`).addClass('active');
@@ -147,15 +160,17 @@ export class ActorImporter extends BaseClass {
     }
 
     private async handleFileUpload(file: File) {
-        const html = this.element;
+        const html = $(this.element as HTMLElement);
         const fileName = file.name;
         const fileExtension = fileName.split('.').pop()?.toLowerCase();
 
-        // Validate file type
-        if (fileExtension !== 'por' && fileExtension !== 'json') {
+        // Validate file type (.por, .xml, .json) – accept is relaxed so picker shows all files
+        const allowed = ['por', 'xml', 'json', 'txt'];
+        if (!fileExtension || !allowed.includes(fileExtension)) {
             ui.notifications?.error(game.i18n.localize('SR5.Import.HeroLabs.InvalidFileType'));
             return;
         }
+        const treatAsXml = fileExtension === 'por' || fileExtension === 'xml' || (fileExtension === 'txt' && fileName.toLowerCase().endsWith('.xml'));
 
         // Show file info
         html.find('#herolabs-file-name').text(fileName);
@@ -168,7 +183,7 @@ export class ActorImporter extends BaseClass {
             
             // Store content for import
             this._heroLabsFileContent = content;
-            this._heroLabsFileType = fileExtension === 'por' ? 'xml' : 'json';
+            this._heroLabsFileType = treatAsXml ? 'xml' : 'json';
             
             // If JSON, try to parse and show in textarea
             if (fileExtension === 'json') {
@@ -192,7 +207,7 @@ export class ActorImporter extends BaseClass {
     }
 
     private clearFileUpload() {
-        const html = this.element;
+        const html = $(this.element as HTMLElement);
         html.find('#herolabs-file-input').val('');
         html.find('.file-upload-prompt').show();
         html.find('#herolabs-file-info').hide();
@@ -212,8 +227,8 @@ export class ActorImporter extends BaseClass {
             };
             reader.onerror = () => reject(new Error('File reading error'));
             
-            // Read as text for JSON, as array buffer for .por (may be binary)
-            if (file.name.endsWith('.json')) {
+            // Read as text for JSON, XML, and .txt; .por may be binary so use ArrayBuffer
+            if (file.name.endsWith('.json') || file.name.endsWith('.xml') || file.name.endsWith('.txt')) {
                 reader.readAsText(file);
             } else {
                 reader.readAsArrayBuffer(file);
@@ -224,8 +239,44 @@ export class ActorImporter extends BaseClass {
     private _heroLabsFileContent: string | ArrayBuffer | null = null;
     private _heroLabsFileType: 'xml' | 'json' | null = null;
 
+    /** Minimal Hero Lab document XML for "Load example character" – valid for parseHeroLabDocumentXml */
+    private static readonly HERO_LABS_EXAMPLE_XML = `<?xml version="1.0" encoding="UTF-8"?>
+<document><public><character name="Example Runner" playername="">
+<race name="Human"/><heritage name=""/><creation><bp total="0" left="0"/></creation>
+<karma total="0" left="0"/><cash total="5000"/>
+<personal gender="" age="" hair="" eyes="" skin=""/>
+<attributes>
+<attribute name="Body" text="3" base="3" modified="3" minimum="1" augmentedmaximum="6"/>
+<attribute name="Agility" text="3" base="3" modified="3" minimum="1" augmentedmaximum="6"/>
+<attribute name="Reaction" text="3" base="3" modified="3" minimum="1" augmentedmaximum="6"/>
+<attribute name="Strength" text="3" base="3" modified="3" minimum="1" augmentedmaximum="6"/>
+<attribute name="Willpower" text="3" base="3" modified="3" minimum="1" augmentedmaximum="6"/>
+<attribute name="Logic" text="3" base="3" modified="3" minimum="1" augmentedmaximum="6"/>
+<attribute name="Intuition" text="3" base="3" modified="3" minimum="1" augmentedmaximum="6"/>
+<attribute name="Charisma" text="3" base="3" modified="3" minimum="1" augmentedmaximum="6"/>
+<attribute name="Edge" text="1" base="1" modified="1" minimum="1" augmentedmaximum="6"/>
+<attribute name="Essence" text="6" base="6" modified="6" minimum="0" augmentedmaximum="6"/>
+<attribute name="Initiative" text="6+1D6" base="6" modified="6" minimum="2" augmentedmaximum="12"/>
+</attributes>
+<movementtypes><movementtype name="Land Movement"><walking value="6"/><running value="12"/></movementtype></movementtypes>
+<armorratings><armorrating name="Armor" rating="0"/></armorratings>
+<reputations><reputation name="Street Cred" value="0"/><reputation name="Notoriety" value="0"/><reputation name="Public Awareness" value="0"/></reputations>
+<qualities><positive/><negative/></qualities>
+<skills><groups/><active/><knowledge/><language/></skills>
+</character></public></document>`;
+
+    private loadHeroLabsExample(): void {
+        const html = $(this.element as HTMLElement);
+        this.clearFileUpload();
+        const textarea = html.find('#herolabs-input')[0] as HTMLTextAreaElement;
+        if (textarea) {
+            textarea.value = ActorImporter.HERO_LABS_EXAMPLE_XML;
+            ui.notifications?.info(game.i18n.localize('SR5.Import.HeroLabs.ExampleLoaded') ?? 'Example XML loaded. Click "Import Character" to create the actor.');
+        }
+    }
+
     private async handleActorImport() {
-        const html = this.element;
+        const html = $(this.element as HTMLElement);
         const activeTab = html.find('.import-tab.active').data('source');
         
         let actorData: ActorSchema;
@@ -255,7 +306,7 @@ export class ActorImporter extends BaseClass {
             armor: getCheckboxValue('input[data-field="armor"]'),
             contacts: getCheckboxValue('input[data-field="contacts"]'),
             cyberware: getCheckboxValue('input[data-field="cyberware"]'),
-            gear: getCheckboxValue('input[data-field="gear"]'),
+            equipment: getCheckboxValue('input[data-field="gear"]'),
             lifestyles: getCheckboxValue('input[data-field="lifestyles"]'),
             powers: getCheckboxValue('input[data-field="powers"]'),
             qualities: getCheckboxValue('input[data-field="qualities"]'),
@@ -276,7 +327,7 @@ export class ActorImporter extends BaseClass {
     }
 
     private async handleChummerImport(): Promise<ActorSchema | null> {
-        const html = this.element;
+        const html = $(this.element as HTMLElement);
         const textarea = html.find('#chummer-input')[0] as HTMLTextAreaElement;
         const jsonText = textarea?.value.trim();
 
@@ -296,7 +347,7 @@ export class ActorImporter extends BaseClass {
     }
 
     private async handleHeroLabsImport(): Promise<ActorSchema | null> {
-        const html = this.element;
+        const html = $(this.element as HTMLElement);
         let heroLabsData: unknown = null;
 
         // Check if file was uploaded
@@ -323,21 +374,25 @@ export class ActorImporter extends BaseClass {
                 return null;
             }
         } else {
-            // Check textarea
+            // Check textarea (XML or JSON)
             const textarea = html.find('#herolabs-input')[0] as HTMLTextAreaElement;
-            const jsonText = textarea?.value.trim();
+            const pastedText = textarea?.value.trim();
 
-            if (!jsonText) {
+            if (!pastedText) {
                 ui.notifications?.warn(game.i18n.localize('SR5.Import.HeroLabs.NoDataError'));
                 return null;
             }
 
-            try {
-                heroLabsData = JSON.parse(jsonText);
-            } catch (error) {
-                ui.notifications?.error(game.i18n.localize('SR5.Import.HeroLabs.InvalidJsonError'));
-                console.error("JSON Parse Error:", error);
-                return null;
+            if (pastedText.startsWith('<')) {
+                heroLabsData = pastedText;
+            } else {
+                try {
+                    heroLabsData = JSON.parse(pastedText);
+                } catch (error) {
+                    ui.notifications?.error(game.i18n.localize('SR5.Import.HeroLabs.InvalidJsonError'));
+                    console.error("JSON Parse Error:", error);
+                    return null;
+                }
             }
         }
 

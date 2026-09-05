@@ -50,7 +50,17 @@ export class CharacterImporter {
         wil: "willpower",
         edg: "edge",
         mag: "magic",
-        res: "resonance"
+        res: "resonance",
+        resonance: "resonance",
+        intuition: "intuition",
+        logic: "logic",
+        body: "body",
+        agility: "agility",
+        reaction: "reaction",
+        strength: "strength",
+        willpower: "willpower",
+        edge: "edge",
+        magic: "magic",
     } as const;
 
     /**
@@ -131,6 +141,7 @@ export class CharacterImporter {
         this.importSkills(actor.system, chummerChar);
 
         actor.system.is_critter = chummerChar.critter === 'True';
+        actor.system.is_npc = chummerChar.charactertype === 'NPC';
     }
 
     // --------------------------------------------------------------------------
@@ -272,6 +283,12 @@ export class CharacterImporter {
             parsedSkill.base = parseInt(skill.rating);
             if (skill.skillspecializations) {
                 parsedSkill.specs = IH.getArray(skill.skillspecializations.skillspecialization).map(spec => spec.name);
+            }
+            // Apply imported attribute so Resonance-linked skills (e.g. Tasking) stay correct.
+            const importedAttr = skill.displayattribute ?? skill.attribute;
+            if (importedAttr) {
+                const att = this.parseAttName(importedAttr);
+                if (att) parsedSkill.attribute = att;
             }
 
             // Precaution to later only deal with complete SkillField data models.
